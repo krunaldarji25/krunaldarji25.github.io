@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ATM Straddle with IV - Calendar View</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    .container {
+      max-width: 1400px;
+      margin: auto;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 8px;
+    }
+    p {
+      color: #94a3b8;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 14px;
+      padding: 16px;
+      margin-top: 18px;
+    }
+    .calendar-container {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .calendar {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 14px;
+      padding: 16px;
+      min-width: 300px;
+      flex: 0 0 auto;
+    }
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .calendar-header button {
+      background: #1f2937;
+      color: #e2e8f0;
+      border: 1px solid #374151;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .calendar-header button:hover {
+      background: #374151;
+    }
+    .calendar-header h2 {
+      margin: 0;
+      font-size: 16px;
+      text-align: center;
+      flex: 1;
+    }
+    .weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .weekday {
+      text-align: center;
+      font-weight: bold;
+      color: #64748b;
+      padding: 8px 0;
+      font-size: 12px;
+    }
+    .days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #1f2937;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      background: #0f172a;
+      transition: all 0.2s;
+    }
+    .day:hover:not(.empty):not(.other-month) {
+      background: #374151;
+      border-color: #4b5563;
+    }
+    .day.empty {
+      cursor: default;
+      background: transparent;
+      border: none;
+    }
+    .day.other-month {
+      color: #475569;
+      cursor: default;
+      background: transparent;
+    }
+    .day.today {
+      background: #0ea5e9;
+      border-color: #0284c7;
+      font-weight: bold;
+    }
+    .day.selected {
+      background: #22c55e;
+      border-color: #16a34a;
+      font-weight: bold;
+    }
+    .day.has-file {
+      border-color: #38bdf8;
+    }
+    .chart-wrap {
+      height: 520px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #1f2937;
+      text-align: right;
+    }
+    th:nth-child(1), th:nth-child(2),
+    td:nth-child(1), td:nth-child(2) {
+      text-align: left;
+    }
+    .table-wrap {
+      max-height: 420px;
+      overflow: auto;
+      margin-top: 10px;
+    }
+    .selected-date {
+      color: #64748b;
+      font-size: 14px;
+      margin-top: 12px;
+    }
+    .data-container {
+      flex: 1;
+      min-width: 500px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ATM Straddle with Time and IV - Calendar View</h1>
+    <p>Select a date from the calendar to load and analyze ATM straddle data.</p>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+      <div class="calendar" id="calendar"></div>
+      <div class="data-container">
+
+        <div class="card">
+          <div class="chart-wrap">
+            <canvas id="atmChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Processed ATM Data</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>ATM Strike</th>
+                  <th>Spot</th>
+                  <th>Call Close</th>
+                  <th>Put Close</th>
+                  <th>Straddle</th>
+                  <th>Realized Move</th>
+                  <th>Call IV</th>
+                  <th>Put IV</th>
+                  <th>Avg IV</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
