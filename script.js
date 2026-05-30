@@ -3,7 +3,7 @@ let currentDate = new Date();
 let selectedDate = null;
 
 const DATE_RANGE_START = new Date(2023, 8, 1); // 2023-09-01
-const DATE_RANGE_END = new Date(2026, 4, 21); // 2026-05-21
+const DATE_RANGE_END = new Date(2026, 10, 21); // 2026-11-21
 
 // Helper function to find column name (case-insensitive)
 function findColumn(row, possibleNames) {
