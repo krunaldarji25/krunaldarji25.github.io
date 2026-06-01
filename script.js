@@ -3,7 +3,7 @@ let currentDate = new Date();
 let selectedDate = null;
 
 const DATE_RANGE_START = new Date(2023, 8, 1); // 2023-09-01
-const DATE_RANGE_END = new Date(2026, 6, 29); // 2026-07-29
+const DATE_RANGE_END = new Date(2026, 4 , 29); // 2026-05-29
 
 // Helper function to find column name (case-insensitive)
 function findColumn(row, possibleNames) {
@@ -230,65 +230,93 @@ function processAndDisplayData(rawData, fileName, dateStr) {
     }
   });
 
-  // Filter for ATM options (exact match only, not ATM-1, ATM-2, etc.)
-  const atmOnly = raw.filter(row => {
+  // Strike levels to track — ATM plus offsets
+  const STRIKE_LEVELS = ["ATM-2", "ATM-1", "ATM", "ATM+1", "ATM+2"];
+
+  // Filter for all relevant strike levels
+  const relevantRows = raw.filter(row => {
     const strike = row[strikeCol];
     const type = row[optionCol];
-    return strike && strike.toString().trim() === "ATM" && 
+    return strike && STRIKE_LEVELS.includes(strike.toString().trim()) &&
            type && (type.toString().toUpperCase() === "CALL" || type.toString().toUpperCase() === "PUT");
   });
 
-  if (atmOnly.length === 0) {
+  if (relevantRows.length === 0) {
     alert("No ATM options data found in this file");
     return;
   }
 
+  // Group by datetime × strike_label
   const grouped = {};
 
-  atmOnly.forEach(row => {
+  relevantRows.forEach(row => {
     const dt = row[datetimeCol];
     const dtParts = dt.toString().split(" ");
     const date = dtParts[0];
     const time = dtParts[1] || "";
+    const strikeLabel = row[strikeCol].toString().trim();
 
     if (!grouped[dt]) {
       grouped[dt] = {
         datetime: dt,
         date: date,
         time: time,
-        atm_strike: strikePrice ? row[strikePrice] : null,
         spot: spotCol ? row[spotCol] : null,
-        call_close: null,
-        put_close: null,
-        call_iv: null,
-        put_iv: null,
         realized_move: realizedMove[dt] ? (realizedMove[dt].high - realizedMove[dt].low) : null
       };
+      // Init all strike level slots
+      STRIKE_LEVELS.forEach(sl => {
+        grouped[dt][sl] = { call_close: null, put_close: null, call_iv: null, put_iv: null, atm_strike: null };
+      });
     }
 
     const optionType = row[optionCol].toString().toUpperCase();
     const closePrice = closeCol ? row[closeCol] : null;
     const iv = ivCol ? row[ivCol] : null;
+    const sp = strikePrice ? row[strikePrice] : null;
 
     if (optionType === "CALL") {
-      grouped[dt].call_close = closePrice;
-      grouped[dt].call_iv = iv;
+      grouped[dt][strikeLabel].call_close = closePrice;
+      grouped[dt][strikeLabel].call_iv = iv;
+      grouped[dt][strikeLabel].atm_strike = sp;
     }
-
     if (optionType === "PUT") {
-      grouped[dt].put_close = closePrice;
-      grouped[dt].put_iv = iv;
+      grouped[dt][strikeLabel].put_close = closePrice;
+      grouped[dt][strikeLabel].put_iv = iv;
+      if (!grouped[dt][strikeLabel].atm_strike) grouped[dt][strikeLabel].atm_strike = sp;
     }
   });
 
   const processed = Object.values(grouped)
-    .filter(d => d.call_close !== null && d.put_close !== null)
+    .filter(d => d["ATM"].call_close !== null && d["ATM"].put_close !== null)
     .sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
-    .map(d => ({
-      ...d,
-      straddle_price: Number(d.call_close) + Number(d.put_close),
-      avg_iv: (Number(d.call_iv) + Number(d.put_iv)) / 2
-    }));
+    .map(d => {
+      const result = {
+        datetime: d.datetime,
+        date: d.date,
+        time: d.time,
+        atm_strike: d["ATM"].atm_strike,
+        spot: d.spot,
+        realized_move: d.realized_move,
+        // ATM
+        call_close: d["ATM"].call_close,
+        put_close: d["ATM"].put_close,
+        call_iv: d["ATM"].call_iv,
+        put_iv: d["ATM"].put_iv,
+        straddle_price: Number(d["ATM"].call_close) + Number(d["ATM"].put_close),
+        avg_iv: (Number(d["ATM"].call_iv) + Number(d["ATM"].put_iv)) / 2
+      };
+      // Offset straddles
+      ["ATM-2", "ATM-1", "ATM+1", "ATM+2"].forEach(sl => {
+        const s = d[sl];
+        if (s && s.call_close !== null && s.put_close !== null) {
+          result[`straddle_${sl}`] = Number(s.call_close) + Number(s.put_close);
+        } else {
+          result[`straddle_${sl}`] = null;
+        }
+      });
+      return result;
+    });
 
   if (processed.length === 0) {
     alert("No valid ATM straddle data found (missing CALL or PUT pairs)");
@@ -315,12 +343,37 @@ function updateHeader(date, fileName, data) {
   }
 }
 
+// Color palette for offset straddles
+const OFFSET_COLORS = {
+  "ATM-2": { border: "#a78bfa", bg: "rgba(167,139,250,0.10)" },  // violet
+  "ATM-1": { border: "#fb923c", bg: "rgba(251,146,60,0.10)" },   // orange
+  "ATM+1": { border: "#34d399", bg: "rgba(52,211,153,0.10)" },   // emerald
+  "ATM+2": { border: "#f472b6", bg: "rgba(244,114,182,0.10)" }   // pink
+};
+
 function renderChart(data) {
   const labels = data.map(d => d.datetime);
   const straddleData = data.map(d => d.straddle_price);
   const avgIvData = data.map(d => d.avg_iv);
   const callIvData = data.map(d => d.call_iv);
   const putIvData = data.map(d => d.put_iv);
+
+  // Build offset straddle datasets
+  const offsetDatasets = ["ATM-2", "ATM-1", "ATM+1", "ATM+2"].map(sl => {
+    const c = OFFSET_COLORS[sl];
+    return {
+      label: `${sl} Straddle`,
+      data: data.map(d => d[`straddle_${sl}`]),
+      yAxisID: "y",
+      borderColor: c.border,
+      backgroundColor: c.bg,
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.15,
+      hidden: true,
+      borderDash: sl.startsWith("ATM-") ? [4, 3] : []
+    };
+  });
 
   const ctx = document.getElementById("atmChart").getContext("2d");
 
@@ -334,15 +387,16 @@ function renderChart(data) {
       labels,
       datasets: [
         {
-          label: "ATM Straddle Price",
+          label: "ATM Straddle",
           data: straddleData,
           yAxisID: "y",
           borderColor: "#38bdf8",
           backgroundColor: "rgba(56, 189, 248, 0.15)",
-          borderWidth: 2,
+          borderWidth: 2.5,
           pointRadius: 0,
           tension: 0.15
         },
+        ...offsetDatasets,
         {
           label: "Average IV",
           data: avgIvData,
@@ -453,20 +507,26 @@ function renderTable(data) {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
+  const fmtN = (v) => (v !== null && v !== undefined && !isNaN(Number(v))) ? Number(v).toFixed(2) : 'N/A';
+
   data.forEach(d => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${d.date}</td>
       <td>${d.time}</td>
       <td>${d.atm_strike}</td>
-      <td>${Number(d.spot).toFixed(2)}</td>
-      <td>${Number(d.call_close).toFixed(2)}</td>
-      <td>${Number(d.put_close).toFixed(2)}</td>
-      <td>${Number(d.straddle_price).toFixed(2)}</td>
-      <td>${d.realized_move ? Number(d.realized_move).toFixed(2) : 'N/A'}</td>
-      <td>${Number(d.call_iv).toFixed(2)}</td>
-      <td>${Number(d.put_iv).toFixed(2)}</td>
-      <td>${Number(d.avg_iv).toFixed(2)}</td>
+      <td>${fmtN(d.spot)}</td>
+      <td>${fmtN(d.call_close)}</td>
+      <td>${fmtN(d.put_close)}</td>
+      <td>${fmtN(d.straddle_price)}</td>
+      <td>${fmtN(d['straddle_ATM-2'])}</td>
+      <td>${fmtN(d['straddle_ATM-1'])}</td>
+      <td>${fmtN(d['straddle_ATM+1'])}</td>
+      <td>${fmtN(d['straddle_ATM+2'])}</td>
+      <td>${d.realized_move ? fmtN(d.realized_move) : 'N/A'}</td>
+      <td>${fmtN(d.call_iv)}</td>
+      <td>${fmtN(d.put_iv)}</td>
+      <td>${fmtN(d.avg_iv)}</td>
     `;
     tbody.appendChild(tr);
   });
