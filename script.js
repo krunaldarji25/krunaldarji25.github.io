@@ -1,6 +1,7 @@
 let chartInstance = null;
 let currentDate = new Date();
 let selectedDate = null;
+let selectedIndex = "NIFTY"; // Default to NIFTY
 
 const DATE_RANGE_START = new Date(2023, 8, 1); // 2023-09-01
 const DATE_RANGE_END = new Date(2026, 6 , 29); // 2026-07-29
@@ -33,6 +34,17 @@ document.addEventListener('DOMContentLoaded', function() {
   if (today >= DATE_RANGE_START && today <= DATE_RANGE_END) {
     selectedDate = new Date(today);
     updateSelectedDateDisplay();
+  }
+
+  // Add event listener for index selector
+  const indexSelect = document.getElementById('indexSelect');
+  if (indexSelect) {
+    indexSelect.addEventListener('change', function() {
+      selectedIndex = this.value;
+      if (selectedDate) {
+        loadFileForDate(selectedDate);
+      }
+    });
   }
 });
 
@@ -159,7 +171,7 @@ function updateSelectedDateDisplay() {
 
 function loadFileForDate(date) {
   const dateStr = formatDate(date);
-  const fileName = `SENSEX_${dateStr}_1m.csv`;
+  const fileName = `${selectedIndex}_${dateStr}_1m.csv`;
   
   // Try to load file from the workspace
   fetch(fileName)

@@ -160,8 +160,19 @@
 </head>
 <body>
   <div class="container">
-    <h1>ATM Straddle with Time and IV - Calendar View</h1>
-    <p>Select a date from the calendar to load and analyze ATM straddle data.</p>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div>
+        <h1>ATM Straddle with Time and IV - Calendar View</h1>
+        <p>Select a date from the calendar to load and analyze ATM straddle data.</p>
+      </div>
+      <div style="background: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 12px 16px; display: flex; gap: 10px; align-items: center;">
+        <label for="indexSelect" style="color: #94a3b8; font-weight: 500;">Select Index:</label>
+        <select id="indexSelect" style="background: #1f2937; color: #e2e8f0; border: 1px solid #374151; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+          <option value="NIFTY">NIFTY</option>
+          <option value="SENSEX">SENSEX</option>
+        </select>
+      </div>
+    </div>
 
     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
       <div class="calendar" id="calendar"></div>
