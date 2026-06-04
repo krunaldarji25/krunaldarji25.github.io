@@ -315,6 +315,14 @@ function processAndDisplayData(rawData, fileName, dateStr) {
           result[`straddle_${sl}`] = null;
         }
       });
+      
+      // Combination: ATM + (ATM-1) + (ATM+1)
+      if (result.straddle_price !== null && result.straddle_ATM-1 !== null && result[`straddle_ATM+1`] !== null) {
+        result.combination_price = result.straddle_price + result[`straddle_ATM-1`] + result[`straddle_ATM+1`];
+      } else {
+        result.combination_price = null;
+      }
+      
       return result;
     });
 
@@ -354,6 +362,7 @@ const OFFSET_COLORS = {
 function renderChart(data) {
   const labels = data.map(d => d.datetime);
   const straddleData = data.map(d => d.straddle_price);
+  const combinationData = data.map(d => d.combination_price);
   const avgIvData = data.map(d => d.avg_iv);
   const callIvData = data.map(d => d.call_iv);
   const putIvData = data.map(d => d.put_iv);
@@ -395,6 +404,17 @@ function renderChart(data) {
           borderWidth: 2.5,
           pointRadius: 0,
           tension: 0.15
+        },
+        {
+          label: "ATM + (ATM-1) + (ATM+1) Combination",
+          data: combinationData,
+          yAxisID: "y",
+          borderColor: "#ec4899",
+          backgroundColor: "rgba(236, 72, 153, 0.15)",
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.15,
+          borderDash: [5, 5]
         },
         ...offsetDatasets,
         {
@@ -523,6 +543,7 @@ function renderTable(data) {
       <td>${fmtN(d['straddle_ATM-1'])}</td>
       <td>${fmtN(d['straddle_ATM+1'])}</td>
       <td>${fmtN(d['straddle_ATM+2'])}</td>
+      <td>${fmtN(d.combination_price)}</td>
       <td>${d.realized_move ? fmtN(d.realized_move) : 'N/A'}</td>
       <td>${fmtN(d.call_iv)}</td>
       <td>${fmtN(d.put_iv)}</td>
